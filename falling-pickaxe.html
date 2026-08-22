@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Falling Pickaxe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+/* ------------------------------------------------------------------
+   Falling Pickaxe — экран выдачи сигнала.
+   Один файл: кирки нарисованы в SVG прямо здесь, картинок рядом не нужно.
+   Шрифт Pixelify Sans взят вместо Press Start 2P — у второго нет
+   кириллицы, русский текст выпадал в системный шрифт.
+   ------------------------------------------------------------------ */
+
+:root{
+  --bg:#0b0b0d;
+  --panel:#17171b;
+  --panel-2:#1f1f25;
+  --line:#2e2e36;
+  --yellow:#ffd400;
+  --yellow-dark:#c9a600;
+  --text:#ffffff;
+  --muted:#8b8b96;
+  --green:#48d16a;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Pixelify Sans',ui-monospace,'Courier New',monospace;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:18px 14px 26px;
+  overflow-x:hidden;
+}
+
+/* Фон: слабая пиксельная сетка, чтобы не было пустоты */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:22px 22px;
+  pointer-events:none;
+}
+
+.wrap{width:100%;max-width:420px;position:relative;z-index:1}
+
+h1{
+  font-size:34px;
+  font-weight:700;
+  line-height:1.05;
+  text-align:center;
+  margin:4px 0 2px;
+  color:var(--yellow);
+  text-shadow:0 4px 0 #7a6500;
+  letter-spacing:2px;
+}
+
+.sub{
+  text-align:center;
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:18px;
+  letter-spacing:1px;
+}
+
+.panel{
+  background:var(--panel);
+  border:2px solid var(--line);
+  border-radius:12px;
+  padding:16px 14px;
+  margin-bottom:12px;
+}
+
+.panel-title{
+  font-size:14px;
+  color:var(--muted);
+  text-align:center;
+  margin-bottom:14px;
+  letter-spacing:1px;
+}
+
+/* --- карточка сигнала --- */
+
+.card{
+  background:var(--panel-2);
+  border:2px solid var(--line);
+  border-radius:10px;
+  padding:18px 12px 16px;
+  text-align:center;
+  min-height:224px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.card.ready{border-color:var(--yellow)}
+
+.pick-name{font-size:20px;font-weight:700;line-height:1.2}
+.pick-hp{font-size:14px;color:var(--muted);margin-top:4px}
+
+svg.pick{width:96px;height:96px;image-rendering:pixelated;display:block}
+
+/* Кирка падает в момент выдачи */
+@keyframes drop{
+  0%{transform:translateY(-26px);opacity:0}
+  60%{transform:translateY(4px);opacity:1}
+  100%{transform:translateY(0)}
+}
+.card.ready svg.pick{animation:drop .45s ease-out}
+
+/* Ожидание: кирка качается */
+@keyframes swing{
+  0%,100%{transform:rotate(-6deg)}
+  50%{transform:rotate(6deg)}
+}
+.card.idle svg.pick{animation:swing 2.4s ease-in-out infinite;opacity:.35}
+
+/* Расчёт */
+@keyframes spin{100%{transform:rotate(360deg)}}
+.card.calc svg.pick{animation:spin .5s linear infinite}
+
+.hint{font-size:15px;color:var(--muted);line-height:1.6}
+
+/* --- строки со значениями --- */
+
+.rows{width:100%;margin-top:4px}
+
+.row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  padding:10px 10px;
+  border-top:1px solid var(--line);
+  font-size:14px;
+}
+.row:first-child{border-top:none}
+.row .k{color:var(--muted)}
+.row .v{color:var(--yellow);font-size:17px;font-weight:600}
+.row .v.green{color:var(--green)}
+
+/* --- ставка --- */
+
+.bet{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  margin-top:2px;
+}
+.bet button{
+  width:44px;height:44px;
+  background:var(--panel-2);
+  border:2px solid var(--line);
+  border-radius:8px;
+  color:var(--text);
+  font-family:inherit;font-size:24px;line-height:1;
+  cursor:pointer;
+}
+.bet button:active{transform:translateY(2px)}
+.bet .val{font-size:26px;font-weight:700;color:var(--yellow);min-width:88px;text-align:center}
+.bet-note{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
+
+/* --- главная кнопка --- */
+
+.go{
+  width:100%;
+  padding:18px 10px;
+  margin-top:4px;
+  background:var(--yellow);
+  color:#000;
+  border:none;
+  border-bottom:5px solid var(--yellow-dark);
+  border-radius:10px;
+  font-family:inherit;
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:1px;
+  cursor:pointer;
+}
+.go:active{transform:translateY(3px);border-bottom-width:2px}
+.go:disabled{
+  background:var(--panel-2);
+  color:var(--muted);
+  border-bottom-color:var(--line);
+  cursor:default;
+  transform:none;
+}
+
+.foot{
+  text-align:center;
+  font-size:11px;
+  color:#4a4a54;
+  margin-top:18px;
+  line-height:1.8;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>FALLING<br>PICKAXE</h1>
+  <div class="sub">СИГНАЛЫ НА НЕЙРОСЕТИ · 1WIN</div>
+
+  <div class="panel">
+    <div class="panel-title">СИГНАЛ НА ПОКУПКУ БОНУСА</div>
+
+    <div class="card idle" id="card">
+      <div id="icon"></div>
+      <div class="hint" id="hint">Нажми кнопку,<br>чтобы получить сигнал</div>
+    </div>
+
+    <div class="rows" id="rows" style="display:none">
+      <div class="row"><span class="k">Покупать</span><span class="v" id="r-pick">—</span></div>
+      <div class="row"><span class="k">Базовая ставка</span><span class="v" id="r-bet">—</span></div>
+      <div class="row"><span class="k">Списание</span><span class="v" id="r-total">—</span></div>
+      <div class="row"><span class="k">Точность</span><span class="v green" id="r-acc">—</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">ТВОЯ БАЗОВАЯ СТАВКА</div>
+    <div class="bet">
+      <button id="minus" type="button">−</button>
+      <div class="val" id="bet-val">1</div>
+      <button id="plus" type="button">+</button>
+    </div>
+    <div class="bet-note">МИН 0.5 · МАКС 200</div>
+  </div>
+
+  <button class="go" id="go" type="button">ПОЛУЧИТЬ СИГНАЛ</button>
+
+  <div class="foot">Сигналы носят рекомендательный характер<br>Играй ответственно</div>
+</div>
+
+<script>
+/* ==================================================================
+   НАСТРОЙКИ
+   ================================================================== */
+
+// Пауза между сигналами, секунд
+var COOLDOWN = 25;
+
+/* ================================================================== */
+
+// Кирки: название, прочность, множитель к базовой ставке, цвета.
+// Множители взяты из интерфейса игры: при базовой ставке 1
+// каменная кирка обходится в 5.65.
+var PICKAXES = [
+  {name:'ДЕРЕВЯННАЯ', hp:100, mult:2.30,  head:'#a9773f', light:'#c99a5e'},
+  {name:'КАМЕННАЯ',   hp:150, mult:5.65,  head:'#9a9a9a', light:'#c0c0c0'},
+  {name:'ЖЕЛЕЗНАЯ',   hp:250, mult:12.40, head:'#d8d8d8', light:'#f2f2f2'},
+  {name:'ЗОЛОТАЯ',    hp:400, mult:28.75, head:'#f2c53d', light:'#ffe27a'},
+  {name:'АЛМАЗНАЯ',   hp:600, mult:60.00, head:'#4fe3d7', light:'#9bf5ee'}
+];
+
+// Чем дороже кирка, тем реже её советуем: если постоянно предлагать
+// алмазную за 60 ставок, депозит уходит за вечер.
+var WEIGHTS = [26, 32, 22, 14, 6];
+
+var BET_STEPS = [0.5,1,1.5,2,3,4,5,7.5,10,15,20,25,30,40,50,75,100,150,200];
+var betIndex = 1; // старт с 1, как в игре
+
+/* --- пиксельная кирка, рисуется прямо здесь --- */
+function pickSvg(p, muted){
+  // Сетка 16x16. 1 — контур, 2 — металл, 3 — блик, 4 — рукоять.
+  var g = [
+    "0000000000000000",
+    "0000001111110000",
+    "0000113222311000",
+    "0001322222223100",
+    "0013222111222310",
+    "0132211000112310",
+    "0132100000001310",
+    "0011000440000110",
+    "0000004440000000",
+    "0000044400000000",
+    "0000444000000000",
+    "0004440000000000",
+    "0044400000000000",
+    "0444000000000000",
+    "0440000000000000",
+    "0000000000000000"
+  ];
+  var colors = {
+    '1': muted ? '#3a3a42' : '#241a10',
+    '2': muted ? '#55555f' : p.head,
+    '3': muted ? '#6a6a75' : p.light,
+    '4': muted ? '#4a4038' : '#8a5a2b'
+  };
+  var out = '<svg class="pick" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">';
+  for (var y=0; y<16; y++){
+    for (var x=0; x<16; x++){
+      var c = g[y][x];
+      if (c === '0') continue;
+      out += '<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+colors[c]+'"/>';
+    }
+  }
+  return out + '</svg>';
+}
+
+/* --- утилиты --- */
+function weightedPick(){
+  var total = 0, i;
+  for (i=0;i<WEIGHTS.length;i++) total += WEIGHTS[i];
+  var r = Math.random() * total;
+  for (i=0;i<WEIGHTS.length;i++){
+    r -= WEIGHTS[i];
+    if (r <= 0) return i;
+  }
+  return 0;
+}
+
+function money(v){
+  return (Math.round(v * 100) / 100).toFixed(2);
+}
+
+function store(key, value){
+  try{
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  }catch(e){ /* приватный режим — живём без памяти */ }
+  return null;
+}
+
+/* --- элементы --- */
+var card  = document.getElementById('card');
+var icon  = document.getElementById('icon');
+var hint  = document.getElementById('hint');
+var rows  = document.getElementById('rows');
+var go    = document.getElementById('go');
+var betEl = document.getElementById('bet-val');
+
+function drawIdle(){
+  icon.innerHTML = pickSvg(PICKAXES[1], true);
+}
+drawIdle();
+
+function renderBet(){
+  betEl.textContent = BET_STEPS[betIndex];
+}
+renderBet();
+
+document.getElementById('minus').onclick = function(){
+  if (betIndex > 0){ betIndex--; renderBet(); }
+};
+document.getElementById('plus').onclick = function(){
+  if (betIndex < BET_STEPS.length - 1){ betIndex++; renderBet(); }
+};
+
+/* --- кулдаун --- */
+var timer = null;
+
+function startCooldown(until){
+  store('fp_until', String(until));
+  if (timer) clearInterval(timer);
+
+  function tick(){
+    var left = Math.ceil((until - Date.now()) / 1000);
+    if (left <= 0){
+      clearInterval(timer);
+      timer = null;
+      go.disabled = false;
+      go.textContent = 'ПОЛУЧИТЬ СИГНАЛ';
+      return;
+    }
+    go.disabled = true;
+    go.textContent = 'ЖДИ ' + left + ' СЕК';
+  }
+  tick();
+  timer = setInterval(tick, 250);
+}
+
+/* --- выдача сигнала --- */
+function giveSignal(){
+  var p = PICKAXES[weightedPick()];
+  var bet = BET_STEPS[betIndex];
+
+  // Небольшой разброс, чтобы числа не повторялись каждый раз
+  var jitter = 0.94 + Math.random() * 0.12;
+  var total = bet * p.mult * jitter;
+  var accuracy = (86 + Math.random() * 11).toFixed(1);
+
+  card.className = 'card ready';
+  icon.innerHTML = pickSvg(p, false);
+  hint.innerHTML = '<div class="pick-name">' + p.name + ' КИРКА</div>' +
+                   '<div class="pick-hp">прочность ' + p.hp + '</div>';
+
+  rows.style.display = 'block';
+  document.getElementById('r-pick').textContent  = p.name;
+  document.getElementById('r-bet').textContent   = money(bet);
+  document.getElementById('r-total').textContent = money(total);
+  document.getElementById('r-acc').textContent   = accuracy + '%';
+
+  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback){
+    try{ Telegram.WebApp.HapticFeedback.notificationOccurred('success'); }catch(e){}
+  }
+
+  startCooldown(Date.now() + COOLDOWN * 1000);
+}
+
+go.onclick = function(){
+  if (go.disabled) return;
+
+  go.disabled = true;
+  go.textContent = 'СЧИТАЮ...';
+  card.className = 'card calc';
+  rows.style.display = 'none';
+  hint.innerHTML = 'Анализирую<br>барабаны...';
+  icon.innerHTML = pickSvg(PICKAXES[1], true);
+
+  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback){
+    try{ Telegram.WebApp.HapticFeedback.impactOccurred('medium'); }catch(e){}
+  }
+
+  setTimeout(giveSignal, 1600 + Math.random() * 900);
+};
+
+/* --- восстановление кулдауна после закрытия окна --- */
+(function(){
+  var saved = parseInt(store('fp_until') || '0', 10);
+  if (saved && saved > Date.now()) startCooldown(saved);
+})();
+
+/* --- Telegram --- */
+if (window.Telegram && Telegram.WebApp){
+  try{
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    Telegram.WebApp.setHeaderColor('#0b0b0d');
+    Telegram.WebApp.setBackgroundColor('#0b0b0d');
+  }catch(e){}
+}
+</script>
+</body>
+</html>

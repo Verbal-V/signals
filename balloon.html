@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BALLOON · Signal</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#071226; --panel:#0e1d38; --line:#1b3058;
+  --txt:#eef4ff; --dim:#8aa0c4;
+  --pink:#ff4d6d; --pink2:#c9184a; --cyan:#2bb3c9; --cyan2:#1b8ba3;
+  --green:#19c44a; --gold:#ffc83d;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+html,body{height:100%}
+body{background:var(--bg);color:var(--txt);
+  background-image:radial-gradient(800px 420px at 50% 0%,rgba(43,179,201,.16),transparent 70%)}
+.app{min-height:100%;max-width:440px;margin:0 auto;padding:12px 12px 16px;
+  display:flex;flex-direction:column;gap:10px}
+
+.top{display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:900;font-size:20px;letter-spacing:.3px}
+.logo span{color:var(--pink)}
+.acc{font-size:11px;font-weight:800;color:var(--green);background:rgba(25,196,74,.12);
+  border:1px solid rgba(25,196,74,.3);padding:5px 9px;border-radius:8px}
+
+.hist{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.hist::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;font-size:12px;font-weight:800;padding:5px 10px;border-radius:20px;
+  background:#0d1a31;border:1px solid var(--line)}
+.chip.lo{color:#5fa8ff} .chip.mid{color:var(--green)} .chip.hi{color:var(--gold)}
+
+.screen{position:relative;flex:1;min-height:300px;border-radius:16px;overflow:hidden;
+  background:linear-gradient(180deg,#0d1f3d 0%,#081426 100%);border:1px solid var(--line);
+  display:grid;place-items:center}
+.clouds{position:absolute;inset:0;opacity:.35;
+  background-image:radial-gradient(60px 22px at 20% 25%,rgba(255,255,255,.18),transparent),
+                   radial-gradient(80px 26px at 78% 42%,rgba(255,255,255,.14),transparent),
+                   radial-gradient(70px 24px at 38% 72%,rgba(255,255,255,.12),transparent)}
+.balloon{position:relative;width:120px;height:146px;transition:transform .12s linear;transform-origin:50% 100%}
+.body{width:120px;height:132px;border-radius:50% 50% 46% 46%;
+  background:radial-gradient(circle at 34% 28%,#ff8fa3 0%,var(--pink) 42%,var(--pink2) 100%);
+  box-shadow:0 0 42px rgba(255,77,109,.4),inset -10px -14px 26px rgba(0,0,0,.25);position:relative}
+.body::after{content:'';position:absolute;left:28px;top:22px;width:22px;height:30px;border-radius:50%;
+  background:rgba(255,255,255,.35);filter:blur(3px)}
+.knot{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+  border-left:9px solid transparent;border-right:9px solid transparent;border-top:13px solid var(--pink2)}
+.string{position:absolute;left:50%;bottom:-2px;width:2px;height:18px;background:rgba(255,255,255,.3)}
+.val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px;
+  font-size:50px;font-weight:900;letter-spacing:-1.5px;text-shadow:0 3px 24px rgba(0,0,0,.65);z-index:2}
+.val small{font-size:27px;font-weight:800;opacity:.85;align-self:center;padding-top:11px}
+.val.pop{color:var(--pink)}
+.state{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-size:12px;
+  font-weight:800;letter-spacing:1.6px;color:var(--dim)}
+.boom{position:absolute;inset:0;display:grid;place-items:center;font-size:170px;opacity:0;z-index:1;
+  pointer-events:none;transition:opacity .3s;filter:blur(1px) drop-shadow(0 0 40px rgba(255,77,109,.5))}
+.boom.show{opacity:.42;animation:boom .55s ease}
+@keyframes boom{0%{transform:scale(.4)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 6px;text-align:center}
+.stat b{display:block;font-size:16px;font-weight:900}
+.stat i{display:block;font-style:normal;font-size:10px;color:var(--dim);margin-top:2px}
+
+.cash{background:linear-gradient(135deg,#ffb703,#fb8500);color:#1b1000;border-radius:13px;
+  padding:16px;text-align:center;font-weight:900;font-size:18px;display:none}
+.cash.show{display:block;animation:pop .3s ease}
+@keyframes pop{0%{transform:scale(.92);opacity:0}100%{transform:scale(1);opacity:1}}
+
+.btn{width:100%;border:0;border-radius:13px;padding:18px;font-size:16px;font-weight:900;color:#fff;
+  background:linear-gradient(135deg,var(--cyan),var(--cyan2));cursor:pointer;letter-spacing:.6px;
+  box-shadow:0 10px 26px rgba(27,139,163,.42);position:relative;overflow:hidden;transition:.2s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{background:#0d1a31;color:var(--dim);box-shadow:none;cursor:default}
+.prog{position:absolute;left:0;bottom:0;height:3px;background:var(--cyan);width:0}
+.hint{text-align:center;color:#5b6f90;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="logo">🎈 BALLOON <span>· SIGNAL</span></div>
+    <div class="acc" id="acc">87%</div>
+  </div>
+
+  <div class="hist" id="hist"></div>
+
+  <div class="screen">
+    <div class="clouds"></div>
+    <div class="balloon" id="balloon">
+      <div class="body"><div class="knot"></div></div>
+      <div class="string"></div>
+    </div>
+    <div class="val" id="val">1.00<small>x</small></div>
+    <div class="boom" id="boom">💥</div>
+    <div class="state" id="state">ГОТОВ К НАДУВУ</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="sAvg">—</b><i id="lAvg">СРЕДНИЙ</i></div>
+    <div class="stat"><b id="sMax">—</b><i id="lMax">МАКС ЗА 10</i></div>
+    <div class="stat"><b id="sCnt">0</b><i id="lCnt">СИГНАЛОВ</i></div>
+  </div>
+
+  <div class="cash" id="cash"></div>
+
+  <button class="btn" id="go">
+    <span id="goTxt">ПОЛУЧИТЬ СИГНАЛ</span>
+    <div class="prog" id="prog"></div>
+  </button>
+  <div class="hint" id="hint">Забирайте ставку до того, как шар лопнет</div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+try{ tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#071226'); }catch(e){}
+const hap = t => { try{ tg.HapticFeedback.impactOccurred(t||'light'); }catch(e){} };
+
+const T = {
+  ru:{btn:'ПОЛУЧИТЬ СИГНАЛ',wait:'СЛЕДУЮЩИЙ ЧЕРЕЗ',sec:'с',ready:'ГОТОВ К НАДУВУ',
+      fly:'НАДУВАЕМ ШАР',gone:'ЛОПНУЛ',cash:'ЗАБИРАТЬ НА',
+      avg:'СРЕДНИЙ',max:'МАКС ЗА 10',cnt:'СИГНАЛОВ',
+      hint:'Забирайте ставку до того, как шар лопнет'},
+  en:{btn:'GET SIGNAL',wait:'NEXT IN',sec:'s',ready:'READY TO INFLATE',
+      fly:'INFLATING',gone:'POPPED',cash:'CASH OUT AT',
+      avg:'AVERAGE',max:'MAX OF 10',cnt:'SIGNALS',
+      hint:'Cash out before the balloon pops'}
+};
+const q = new URLSearchParams(location.search);
+let lang = (q.get('lang') || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code) || 'ru').slice(0,2);
+if(!T[lang]) lang='ru';
+
+const $ = id => document.getElementById(id);
+let busy=false, timerId=null, history=[], signals=0;
+const chipClass = v => v < 2 ? 'lo' : (v < 6 ? 'mid' : 'hi');
+
+function drawHistory(){
+  $('hist').innerHTML = '';
+  history.slice(0,12).forEach(v=>{
+    const d=document.createElement('div');
+    d.className='chip '+chipClass(v); d.textContent=v.toFixed(2)+'x';
+    $('hist').appendChild(d);
+  });
+  const last = history.slice(0,10);
+  if(last.length){
+    $('sAvg').textContent=(last.reduce((a,b)=>a+b,0)/last.length).toFixed(2)+'x';
+    $('sMax').textContent=Math.max(...last).toFixed(2)+'x';
+  }
+}
+function seed(){
+  for(let i=0;i<12;i++){
+    const r=Math.random();
+    history.push(r<.6 ? 1+Math.random()*1.4 : (r<.93 ? 2.4+Math.random()*3.6 : 6+Math.random()*14));
+  }
+  drawHistory();
+}
+function target(){
+  const r=Math.random();
+  if(r<.6) return 1.25+Math.random()*1.15;
+  if(r<.93) return 2.40+Math.random()*2.6;
+  return 5+Math.random()*5;
+}
+
+function run(){
+  busy=true; $('go').disabled=true;
+  $('cash').classList.remove('show'); $('val').classList.remove('pop');
+  $('state').textContent=T[lang].fly;
+  $('acc').textContent=(84+Math.floor(Math.random()*12))+'%';
+
+  const goal=target(), dur=2600+Math.random()*900, t0=performance.now();
+  (function frame(now){
+    const p=Math.min(1,(now-t0)/dur);
+    const v=1+(goal-1)*(1-Math.pow(1-p,2.2));
+    $('val').innerHTML=v.toFixed(2)+'<small>x</small>';
+    const wob = Math.sin(now/90)*0.012;
+    $('balloon').style.transform=`scale(${(0.6+p*0.75+wob).toFixed(3)})`;
+    if(p<1) requestAnimationFrame(frame); else finish(goal);
+  })(t0);
+}
+function finish(goal){
+  $('val').classList.add('pop');
+  $('state').textContent=T[lang].gone;
+  $('balloon').style.transform='scale(0)';
+  $('boom').classList.add('show');
+  $('cash').textContent=`${T[lang].cash} ${goal.toFixed(2)}x`;
+  $('cash').classList.add('show');
+  history.unshift(goal); drawHistory();
+  signals++; $('sCnt').textContent=signals;
+  hap('medium'); cooldown(10);
+}
+function cooldown(sec){
+  let left=sec; const txt=$('goTxt'), pr=$('prog');
+  const tick=()=>{
+    txt.textContent=`${T[lang].wait} ${left}${T[lang].sec}`;
+    pr.style.width=(100-left/sec*100)+'%';
+    if(left-- <= 0){
+      clearInterval(timerId);
+      txt.textContent=T[lang].btn; pr.style.width='0';
+      $('go').disabled=false; busy=false;
+      $('state').textContent=T[lang].ready;
+      $('val').innerHTML='1.00<small>x</small>'; $('val').classList.remove('pop');
+      $('balloon').style.transform='scale(0.6)';
+      $('boom').classList.remove('show');
+    }
+  };
+  tick(); timerId=setInterval(tick,1000);
+}
+
+$('go').onclick=()=>{ if(!busy){ hap('medium'); run(); } };
+$('goTxt').textContent=T[lang].btn;
+$('state').textContent=T[lang].ready;
+$('hint').textContent=T[lang].hint;
+$('lAvg').textContent=T[lang].avg; $('lMax').textContent=T[lang].max; $('lCnt').textContent=T[lang].cnt;
+$('balloon').style.transform='scale(0.6)';
+seed();
+</script>
+</body>
+</html>

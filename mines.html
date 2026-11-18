@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MINES · Signal</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#120a22; --tile:#2a1a45; --tile2:#38235f; --line:#412a6b;
+  --txt:#f3eefc; --dim:#9b8cc0;
+  --pur:#a21caf; --pur2:#7e22ce; --gold:#ffc83d; --green:#2ee06a;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+html,body{height:100%}
+body{background:var(--bg);color:var(--txt);
+  background-image:radial-gradient(760px 340px at 50% -8%,rgba(162,28,175,.28),transparent 70%)}
+.app{min-height:100%;max-width:440px;margin:0 auto;padding:12px 12px 16px;
+  display:flex;flex-direction:column;gap:12px}
+
+.top{display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(90deg,#1e1033,#2d1655);border:1px solid var(--line);
+  border-radius:14px;padding:13px 15px}
+.ttl{font-weight:900;letter-spacing:1.6px;font-size:16px}
+.ttl span{color:var(--pur)}
+.acc{font-size:11px;font-weight:800;color:var(--green);background:rgba(46,224,106,.12);
+  border:1px solid rgba(46,224,106,.3);padding:5px 9px;border-radius:8px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#1c1030;border:1px solid var(--line);border-radius:12px;padding:9px 6px;text-align:center}
+.stat b{display:block;font-size:17px;font-weight:900}
+.stat i{display:block;font-style:normal;font-size:10px;color:var(--dim);margin-top:2px;letter-spacing:.3px}
+
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;flex:1;align-content:center}
+.cell{aspect-ratio:1/1;perspective:700px;cursor:default}
+.in{position:relative;width:100%;height:100%;transform-style:preserve-3d;
+  transition:transform .5s cubic-bezier(.2,.85,.3,1.25)}
+.cell.open .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:12px;display:grid;place-items:center;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid var(--line)}
+.front{background:linear-gradient(180deg,var(--tile2),var(--tile))}
+.front svg{width:44%;height:44%;opacity:.3}
+.back{transform:rotateY(180deg);background:linear-gradient(180deg,#5a3a0d,#32200a);
+  border-color:#8a6412;box-shadow:0 0 18px rgba(255,200,61,.3) inset}
+.back svg{width:56%;height:56%}
+.cell.open{animation:glow .9s ease .45s}
+@keyframes glow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 14px rgba(255,200,61,.65))}}
+
+.mults{display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
+.mults::-webkit-scrollbar{display:none}
+.mult{flex:0 0 auto;font-size:12.5px;font-weight:800;color:var(--dim);background:#1c1030;
+  border:1px solid var(--line);border-radius:8px;padding:7px 10px;transition:.25s}
+.mult.on{background:linear-gradient(135deg,var(--pur),var(--pur2));color:#fff;border-color:transparent}
+
+.panel{background:#1a0f2d;border:1px solid var(--line);border-radius:16px;padding:12px;display:grid;gap:10px}
+.counter{display:flex;align-items:center;justify-content:space-between;
+  background:#140a24;border:1px solid var(--line);border-radius:14px;padding:8px}
+.counter .mid{display:flex;align-items:center;gap:10px}
+.counter .mid b{font-size:32px;font-weight:900;line-height:1}
+.counter .mid span{font-size:30px;line-height:1}
+.counter button{width:56px;height:52px;border-radius:13px;color:#fff;
+  border:1px solid var(--line);background:linear-gradient(180deg,var(--tile2),var(--tile));
+  font-size:26px;font-weight:800;line-height:1;cursor:pointer;transition:.15s}
+.counter button:active{transform:scale(.94)}
+.counter button:disabled{opacity:.35}
+
+.btn{width:100%;border:0;border-radius:13px;padding:18px;font-size:16px;font-weight:900;color:#fff;
+  background:linear-gradient(135deg,var(--pur),var(--pur2));cursor:pointer;letter-spacing:.6px;
+  box-shadow:0 10px 26px rgba(126,34,206,.45);position:relative;overflow:hidden;transition:.2s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{background:#1c1030;color:var(--dim);box-shadow:none;cursor:default}
+.prog{position:absolute;left:0;bottom:0;height:3px;background:var(--pur);width:0}
+.hint{text-align:center;color:#6d5f91;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="ttl">MINES <span>· SIGNAL</span></div>
+    <div class="acc" id="acc">87%</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="sSafe">5</b><i id="lSafe">ЗВЁЗД</i></div>
+    <div class="stat"><b id="sMax">×1.89</b><i id="lMax">ДО</i></div>
+    <div class="stat"><b id="sCnt">0</b><i id="lCnt">СИГНАЛОВ</i></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="mults" id="mults"></div>
+
+  <div class="panel">
+    <div class="counter">
+      <button id="minus">−</button>
+      <div class="mid">
+        <b id="mineCnt">3</b><span>💣</span>
+      </div>
+      <button id="plus">+</button>
+    </div>
+    <button class="btn" id="go">
+      <span id="goTxt">ПОЛУЧИТЬ СИГНАЛ</span>
+      <div class="prog" id="prog"></div>
+    </button>
+  </div>
+  <div class="hint" id="hint">Открывайте клетки со звёздами по очереди</div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+try{ tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#120a22'); }catch(e){}
+const hap = t => { try{ tg.HapticFeedback.impactOccurred(t||'light'); }catch(e){} };
+
+const T = {
+  ru:{btn:'ПОЛУЧИТЬ СИГНАЛ',wait:'СЛЕДУЮЩИЙ ЧЕРЕЗ',sec:'с',mines:'💣 мины',
+      safe:'ЗВЁЗД',max:'ДО',cnt:'СИГНАЛОВ',
+      hint:'Открывайте клетки со звёздами по очереди',
+      hint2:'Сигнал готов — открывайте отмеченные клетки'},
+  en:{btn:'GET SIGNAL',wait:'NEXT IN',sec:'s',mines:'💣 mines',
+      safe:'STARS',max:'UP TO',cnt:'SIGNALS',
+      hint:'Open the starred cells one by one',
+      hint2:'Signal is ready — open the marked cells'}
+};
+const q = new URLSearchParams(location.search);
+let lang = (q.get('lang') || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code) || 'ru').slice(0,2);
+if(!T[lang]) lang='ru';
+
+const STAR = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 2.6l2.7 6.1 6.6.6-5 4.4 1.5 6.5L12 16.8 6.2 20.2l1.5-6.5-5-4.4 6.6-.6z"
+  fill="url(#g)" stroke="#ffd766" stroke-width="1.1" stroke-linejoin="round"/>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#ffe9a8"/><stop offset="100%" stop-color="#f5a623"/></linearGradient></defs></svg>`;
+const GLYPH = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5 5.3.5-4 3.5 1.2 5.2L12 14.6 7.3 17.2l1.2-5.2-4-3.5 5.3-.5z"
+  stroke="#8d6fd1" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+
+const OPTS = [1,3,5,7];
+const STARS_BY_MINES = {1:7, 3:5, 5:4, 7:3};
+let mines = 3, busy = false, timerId = null, signals = 0;
+
+const $ = id => document.getElementById(id);
+const comb = (n,k)=>{ let r=1; for(let i=1;i<=k;i++) r = r*(n-k+i)/i; return r; };
+const mults = m => Array.from({length:Math.min(10,25-m)},(_,i)=>
+  (0.94*comb(25,i+1)/comb(25-m,i+1)).toFixed(2));
+
+function buildGrid(){
+  const g = $('grid'); g.innerHTML = '';
+  for(let i=0;i<25;i++){
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.innerHTML = `<div class="in"><div class="face front">${GLYPH}</div>
+                   <div class="face back">${STAR}</div></div>`;
+    g.appendChild(c);
+  }
+}
+function buildMults(active){
+  const box = $('mults'); box.innerHTML = '';
+  mults(mines).forEach((m,i)=>{
+    const d = document.createElement('div');
+    d.className = 'mult' + (i < active ? ' on' : '');
+    d.textContent = '×' + m;
+    box.appendChild(d);
+  });
+}
+function render(){
+  const stars = STARS_BY_MINES[mines];
+  $('mineCnt').textContent = mines;
+  $('sSafe').textContent = stars;
+  $('sMax').textContent = '×' + mults(mines)[stars-1];
+  $('sCnt').textContent = signals;
+  $('minus').disabled = mines === OPTS[0];
+  $('plus').disabled  = mines === OPTS[OPTS.length-1];
+  buildGrid(); buildMults(0);
+  $('hint').textContent = T[lang].hint;
+}
+function step(dir){
+  if(busy) return;
+  const i = OPTS.indexOf(mines) + dir;
+  if(i < 0 || i >= OPTS.length) return;
+  mines = OPTS[i]; hap(); render();
+}
+
+function pick(n){
+  const idx = [...Array(25).keys()];
+  for(let i=idx.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  return idx.slice(0,n);
+}
+
+async function signal(){
+  busy = true; $('go').disabled = true;
+  $('hint').textContent = T[lang].hint2;
+  buildGrid();
+
+  const cells = document.querySelectorAll('.cell');
+  const safe = pick(STARS_BY_MINES[mines]);
+  $('acc').textContent = (84 + Math.floor(Math.random()*12)) + '%';
+
+  for(let i=0;i<safe.length;i++){
+    await new Promise(r=>setTimeout(r,260));
+    cells[safe[i]].classList.add('open');
+    buildMults(i+1);
+    hap('medium');
+  }
+  signals++; $('sCnt').textContent = signals;
+  cooldown(10);
+}
+
+function cooldown(sec){
+  let left = sec;
+  const txt = $('goTxt'), pr = $('prog');
+  const tick = ()=>{
+    txt.textContent = `${T[lang].wait} ${left}${T[lang].sec}`;
+    pr.style.width = (100 - left/sec*100) + '%';
+    if(left-- <= 0){
+      clearInterval(timerId);
+      txt.textContent = T[lang].btn; pr.style.width = '0';
+      $('go').disabled = false; busy = false;
+      $('minus').disabled = mines === OPTS[0];
+      $('plus').disabled  = mines === OPTS[OPTS.length-1];
+    }
+  };
+  tick(); timerId = setInterval(tick, 1000);
+}
+
+$('minus').onclick = ()=>step(-1);
+$('plus').onclick  = ()=>step(1);
+$('go').onclick = ()=>{ if(!busy){ hap('medium'); signal(); } };
+
+$('goTxt').textContent = T[lang].btn;
+$('lSafe').textContent = T[lang].safe;
+$('lMax').textContent = T[lang].max;
+$('lCnt').textContent = T[lang].cnt;
+render();
+</script>
+</body>
+</html>

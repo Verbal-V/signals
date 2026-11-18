@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CHICKEN PIRATES · Signal</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#06131a; --panel:#0c2029; --line:#163a47;
+  --txt:#eefaff; --dim:#86a6b4;
+  --gold:#ffc83d; --gold2:#f59e0b; --cyan:#2bb3c9; --cyan2:#1b8ba3;
+  --green:#19c44a; --red:#ff4d5e;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+html,body{height:100%}
+body{background:var(--bg);color:var(--txt);
+  background-image:radial-gradient(780px 380px at 50% -6%,rgba(43,179,201,.18),transparent 70%)}
+.app{min-height:100%;max-width:440px;margin:0 auto;padding:12px 12px 16px;
+  display:flex;flex-direction:column;gap:10px}
+
+.top{display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:900;font-size:17px;letter-spacing:.3px}
+.logo span{color:var(--gold)}
+.acc{font-size:11px;font-weight:800;color:var(--green);background:rgba(25,196,74,.12);
+  border:1px solid rgba(25,196,74,.3);padding:5px 9px;border-radius:8px}
+
+.sea{position:relative;flex:1;min-height:290px;border-radius:16px;overflow:hidden;
+  background:linear-gradient(180deg,#0b2130 0%,#061520 100%);border:1px solid var(--line);
+  display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 12px}
+.wave{position:absolute;left:0;right:0;bottom:0;height:34%;opacity:.10;
+  background:repeating-linear-gradient(135deg,transparent 0 10px,rgba(43,179,201,.5) 10px 12px)}
+.road{display:flex;flex-direction:column;gap:7px;position:relative;z-index:2}
+.step{display:flex;align-items:center;gap:10px;background:#0b1e27;border:1px solid var(--line);
+  border-radius:12px;padding:11px 12px;transition:.3s;position:relative}
+.step .n{width:24px;font-size:12px;font-weight:800;color:var(--dim)}
+.step .m{margin-left:auto;font-size:14px;font-weight:900;color:var(--dim)}
+.step .ico{font-size:17px;opacity:.25}
+.step.safe{background:linear-gradient(90deg,rgba(255,200,61,.18),rgba(255,200,61,.05));
+  border-color:#8a6412;animation:in .35s ease}
+.step.safe .m{color:var(--gold)} .step.safe .ico{opacity:1}
+.step.stop{background:linear-gradient(90deg,rgba(255,77,94,.18),rgba(255,77,94,.04));border-color:#7d1b26}
+.step.stop .ico{opacity:1} .step.stop .m{color:var(--red)}
+@keyframes in{0%{transform:translateX(-14px);opacity:0}100%{transform:none;opacity:1}}
+.chick{position:absolute;left:14px;font-size:22px;transition:top .3s cubic-bezier(.3,1.4,.5,1);z-index:3}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 6px;text-align:center}
+.stat b{display:block;font-size:16px;font-weight:900}
+.stat i{display:block;font-style:normal;font-size:10px;color:var(--dim);margin-top:2px}
+
+.counter{display:flex;align-items:center;justify-content:space-between;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px}
+.counter .mid{text-align:center;line-height:1.15}
+.counter .mid b{display:block;font-size:19px;font-weight:900}
+.counter .mid small{display:block;color:var(--dim);font-weight:700;font-size:11px;letter-spacing:.5px}
+.counter button{width:56px;height:52px;border-radius:13px;border:0;color:#fff;
+  background:linear-gradient(180deg,var(--cyan),var(--cyan2));font-size:26px;font-weight:800;line-height:1;
+  cursor:pointer;transition:.15s;box-shadow:0 5px 14px rgba(27,139,163,.4)}
+.counter button:active{transform:scale(.94)}
+.counter button:disabled{opacity:.3;box-shadow:none}
+
+.btn{width:100%;border:0;border-radius:13px;padding:18px;font-size:16px;font-weight:900;color:#1b1000;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));cursor:pointer;letter-spacing:.6px;
+  box-shadow:0 10px 26px rgba(245,158,11,.35);position:relative;overflow:hidden;transition:.2s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{background:#0c2029;color:var(--dim);box-shadow:none;cursor:default}
+.prog{position:absolute;left:0;bottom:0;height:3px;background:var(--gold);width:0}
+.hint{text-align:center;color:#5a7585;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="logo">🐔 CHICKEN PIRATES <span>· SIGNAL</span></div>
+    <div class="acc" id="acc">87%</div>
+  </div>
+
+  <div class="sea">
+    <div class="wave"></div>
+    <div class="road" id="road"></div>
+    <div class="chick" id="chick" style="top:12px">🐔</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="sSteps">—</b><i id="lSteps">ШАГОВ</i></div>
+    <div class="stat"><b id="sMult">—</b><i id="lMult">ЗАБРАТЬ НА</i></div>
+    <div class="stat"><b id="sCnt">0</b><i id="lCnt">СИГНАЛОВ</i></div>
+  </div>
+
+  <div class="counter">
+    <button id="minus">−</button>
+    <div class="mid"><b id="lvlName">СРЕДНЯЯ</b><small id="lLvl">сложность</small></div>
+    <button id="plus">+</button>
+  </div>
+
+  <button class="btn" id="go">
+    <span id="goTxt">ПОЛУЧИТЬ СИГНАЛ</span>
+    <div class="prog" id="prog"></div>
+  </button>
+  <div class="hint" id="hint">Идите по отмеченным шагам и забирайте на последнем</div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+try{ tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#06131a'); }catch(e){}
+const hap = t => { try{ tg.HapticFeedback.impactOccurred(t||'light'); }catch(e){} };
+
+const T = {
+  ru:{btn:'ПОЛУЧИТЬ СИГНАЛ',wait:'СЛЕДУЮЩИЙ ЧЕРЕЗ',sec:'с',lvl:'сложность',
+      steps:'ШАГОВ',mult:'ЗАБРАТЬ НА',cnt:'СИГНАЛОВ',
+      names:['ЛЁГКАЯ','СРЕДНЯЯ','СЛОЖНАЯ','ХАРДКОР'],
+      hint:'Идите по отмеченным шагам и забирайте на последнем',
+      hint2:'Сигнал готов — не идите дальше отметки'},
+  en:{btn:'GET SIGNAL',wait:'NEXT IN',sec:'s',lvl:'difficulty',
+      steps:'STEPS',mult:'CASH OUT AT',cnt:'SIGNALS',
+      names:['EASY','MEDIUM','HARD','HARDCORE'],
+      hint:'Walk the marked steps and cash out on the last one',
+      hint2:'Signal ready — do not go past the mark'}
+};
+const q = new URLSearchParams(location.search);
+let lang = (q.get('lang') || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code) || 'ru').slice(0,2);
+if(!T[lang]) lang='ru';
+
+const LEVELS = [
+  {risk:.04, max:8},   // лёгкая
+  {risk:.09, max:7},   // средняя
+  {risk:.17, max:6},   // сложная
+  {risk:.28, max:5},   // хардкор
+];
+const STEPS = 8;
+let lvl = 1, busy = false, timerId = null, signals = 0;
+
+const $ = id => document.getElementById(id);
+const multAt = (k) => (0.97 / Math.pow(1 - LEVELS[lvl].risk, k)).toFixed(2);
+
+function buildRoad(){
+  const r = $('road'); r.innerHTML = '';
+  for(let i=1;i<=STEPS;i++){
+    const d = document.createElement('div');
+    d.className = 'step';
+    d.innerHTML = `<span class="n">${i}</span><span class="ico">🪙</span>
+                   <span class="m">×${multAt(i)}</span>`;
+    r.appendChild(d);
+  }
+  $('chick').style.top = '12px';
+}
+function render(){
+  $('lvlName').textContent = T[lang].names[lvl];
+  $('minus').disabled = lvl === 0;
+  $('plus').disabled  = lvl === LEVELS.length-1;
+  buildRoad();
+  $('sSteps').textContent = '—'; $('sMult').textContent = '—';
+  $('hint').textContent = T[lang].hint;
+}
+function step(d){
+  if(busy) return;
+  const n = lvl + d;
+  if(n < 0 || n >= LEVELS.length) return;
+  lvl = n; hap(); render();
+}
+
+async function signal(){
+  busy = true; $('go').disabled = true;
+  $('hint').textContent = T[lang].hint2;
+  buildRoad();
+  $('acc').textContent = (84 + Math.floor(Math.random()*12)) + '%';
+
+  const max = LEVELS[lvl].max;
+  const safe = 2 + Math.floor(Math.random() * (max - 1));
+  const items = document.querySelectorAll('.step');
+
+  for(let i=0;i<safe;i++){
+    await new Promise(r=>setTimeout(r,260));
+    items[i].classList.add('safe');
+    const box = items[i].getBoundingClientRect();
+    const road = $('road').getBoundingClientRect();
+    $('chick').style.top = (box.top - road.top + 12) + 'px';
+    hap('light');
+  }
+  if(items[safe]) items[safe].classList.add('stop'), items[safe].querySelector('.ico').textContent = '☠️';
+
+  $('sSteps').textContent = safe;
+  $('sMult').textContent = '×' + multAt(safe);
+  signals++; $('sCnt').textContent = signals;
+  hap('medium');
+  cooldown(10);
+}
+
+function cooldown(sec){
+  let left = sec; const txt = $('goTxt'), pr = $('prog');
+  const tick = ()=>{
+    txt.textContent = `${T[lang].wait} ${left}${T[lang].sec}`;
+    pr.style.width = (100 - left/sec*100) + '%';
+    if(left-- <= 0){
+      clearInterval(timerId);
+      txt.textContent = T[lang].btn; pr.style.width = '0';
+      $('go').disabled = false; busy = false;
+      $('minus').disabled = lvl === 0;
+      $('plus').disabled  = lvl === LEVELS.length-1;
+    }
+  };
+  tick(); timerId = setInterval(tick, 1000);
+}
+
+$('minus').onclick = ()=>step(-1);
+$('plus').onclick  = ()=>step(1);
+$('go').onclick = ()=>{ if(!busy){ hap('medium'); signal(); } };
+
+$('goTxt').textContent = T[lang].btn;
+$('lLvl').textContent = T[lang].lvl;
+$('lSteps').textContent = T[lang].steps;
+$('lMult').textContent = T[lang].mult;
+$('lCnt').textContent = T[lang].cnt;
+render();
+</script>
+</body>
+</html>
